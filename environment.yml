@@ -1,0 +1,5 @@
+name: collab_design
+dependencies:
+  - python=3.6.5
+  - ipython=6.3.1
+  - caffe=1.0

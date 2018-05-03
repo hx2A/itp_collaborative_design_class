@@ -5,9 +5,13 @@ import datetime
 import re
 import time
 
+from PIL import Image
 import numpy as np
 import requests
 import caffe
+
+import haiku_client
+
 
 OUTPUT_DIR = 'data'
 
@@ -44,7 +48,7 @@ def download_images(image_urls):
     return output_dir, img_data
 
 
-def evaluate_images(output_dir, img_data):
+def evaluate_images(img_dir, img_data):
     model_def = 'memnet/deploy.prototxt'
     model_weights = 'memnet/memnet.caffemodel'
 
@@ -64,7 +68,7 @@ def evaluate_images(output_dir, img_data):
 
     for num, url in img_data:
         img = caffe.io.load_image(
-            os.path.join(output_dir, '{0}.jpg'.format(num)))
+            os.path.join(img_dir, '{0}.jpg'.format(num)))
         transformed_img = transformer.preprocess('data', img)
         net.blobs['data'].data[num, ...] = transformed_img
 
@@ -75,21 +79,38 @@ def evaluate_images(output_dir, img_data):
     return result
 
 
-def make_html(output_dir, data, best_limit):
+def make_html(img_dir, data, best_limit):
     data = sorted(data, key=lambda x: x[2], reverse=True)[:best_limit]
     body = ''.join(['<div>{1}<img src="{0}.jpg"></div>'.format(i, r)
                     for i, _, r in data])
 
     html = "<html><head></head><body>{0}</body></html>".format(body)
 
-    with open(os.path.join(output_dir, 'out.html'), 'w') as f:
+    with open(os.path.join(img_dir, 'out.html'), 'w') as f:
         f.write(html)
 
 
-def demo(tag, limit=10, best_limit=5):
+def make_haiku_polaroid(img_dir, data):
+    best_image = sorted(data, key=lambda x: x[2], reverse=True)[0]
+    input_img = os.path.join(img_dir, str(best_image[0]) + '.jpg')
+    output_img = os.path.join(img_dir, 'haiku.jpg')
+    print("Making haiku for instagram image.")
+    print("Most memorable instagram image:", input_img)
+    print("Haiku image:", output_img)
+
+    haiku_client.send_recv_img(input_img, output_img)
+
+
+def show_top_images(img_dir, data, num=3):
+    top_images = sorted(data, key=lambda x: x[2], reverse=True)[:num]
+    for img in top_images:
+        Image.open(os.path.join(img_dir, f'{img[0]}.jpg')).show()
+
+
+def demo(tag, limit=10):
     image_urls = get_img_urls(tag, limit)
     output_dir, img_data = download_images(image_urls)
     data = evaluate_images(output_dir, img_data)
-    make_html(output_dir, data, best_limit)
-
-    print('Output written to', output_dir)
+    show_top_images(output_dir, data)
+    # make_html(output_dir, data, 5)
+    # make_haiku_polaroid(output_dir, data)
